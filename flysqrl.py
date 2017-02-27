@@ -54,6 +54,16 @@ def get_rank_endpoint_latency(endpoints):
     return indexes
 
 
+def get_request_threshold(endpoints):
+    requests = []
+    for endpoint in endpoints:
+        requests.extend(endpoint.requests.values())
+    requests.sort()
+    size = len(requests)
+
+    return requests[size / 4], requests[size / 2], requests[size * 3 / 4]
+
+
 def magic_algorithm(file_path):
     input = read(file_path)
     conf = input[0]
@@ -61,15 +71,27 @@ def magic_algorithm(file_path):
     endpoints = input[2]
     caches = []
 
+    threshold = get_request_threshold(endpoints)
+
     for i in range(0, conf[INDEX_NUMBER_OF_CACHES]):
         caches.append(Cache(conf[INDEX_CACHE_SIZE], video_sizes))
 
     for endpoint_id in get_rank_endpoint_latency(endpoints):
         for video_id in endpoints[endpoint_id].get_rank_requests():
-            for cache_id in endpoints[endpoint_id].get_rank_caches():
-                if endpoints[endpoint_id].caches[cache_id] < endpoints[endpoint_id].latency and \
-                        caches[cache_id].add_video(video_id):
-                    break
+            if endpoints[endpoint_id].requests[video_id] > threshold[0]:
+                for cache_id in endpoints[endpoint_id].get_rank_caches():
+                    if endpoints[endpoint_id].caches[cache_id] < endpoints[endpoint_id].latency and \
+                            caches[cache_id].add_video(video_id):
+                        break
+
+    for endpoint_id in get_rank_endpoint_latency(endpoints):
+        for video_id in endpoints[endpoint_id].get_rank_requests():
+            if endpoints[endpoint_id].requests[video_id] <= threshold[0]:
+                for cache_id in endpoints[endpoint_id].get_rank_caches():
+                    if endpoints[endpoint_id].caches[cache_id] < endpoints[endpoint_id].latency and \
+                            caches[cache_id].add_video(video_id):
+                        break
+
     return caches
 
 
